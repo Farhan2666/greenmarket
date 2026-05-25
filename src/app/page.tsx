@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   ShoppingCart,
-  User,
-  Menu,
-  X,
   Camera,
   Package,
   Store,
@@ -19,53 +17,23 @@ import {
   Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const categories = [
-  { name: "Elektronik", icon: "📱" },
-  { name: "Fashion", icon: "👕" },
-  { name: "Sepatu", icon: "👟" },
-  { name: "Aksesoris", icon: "⌚" },
-  { name: "Rumah", icon: "🏠" },
-  { name: "Olahraga", icon: "⚽" },
-];
-
-const featuredProducts = [
-  {
-    id: 1,
-    name: "Wireless Headphone Pro",
-    price: 299000,
-    rating: 4.8,
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400",
-    store: "TechStore Official",
-  },
-  {
-    id: 2,
-    name: "Smart Watch Ultra",
-    price: 549000,
-    rating: 4.9,
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-    store: "GadgetZone",
-  },
-  {
-    id: 3,
-    name: "Sneakers Air Max",
-    price: 450000,
-    rating: 4.7,
-    image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400",
-    store: "Sportify",
-  },
-  {
-    id: 4,
-    name: "Premium Backpack",
-    price: 189000,
-    rating: 4.6,
-    image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400",
-    store: "UrbanGear",
-  },
-];
+import { products, categories } from "@/lib/data";
 
 export default function HomePage() {
+  const router = useRouter();
+  const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+
+  const trending = ["Wireless Headphone", "Sepatu Running", "Smartwatch", "Tas Ransel"];
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (search.trim()) {
+      router.push(`/products?q=${encodeURIComponent(search)}`);
+    }
+  };
+
+  const featuredProducts = products.slice(0, 4);
 
   return (
     <div className="space-y-16 pb-20">
@@ -74,10 +42,13 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
         <div className="max-w-7xl mx-auto px-4 pt-16 pb-12 relative">
           <div className="text-center space-y-6 max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-sm text-primary animate-fade-in">
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-sm text-primary animate-fade-in"
+            >
               <Sparkles className="w-4 h-4" />
               Belanja Lebih Cerdas dengan AI
-            </div>
+            </Link>
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-balance">
               Temukan Produk
               <span className="text-primary"> Impianmu</span>
@@ -87,8 +58,7 @@ export default function HomePage() {
               serupa dalam hitungan detik.
             </p>
 
-            {/* Search Bar */}
-            <div className="relative max-w-2xl mx-auto">
+            <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto">
               <div
                 className={cn(
                   "flex items-center gap-2 glass rounded-2xl px-5 py-3.5 transition-all duration-300",
@@ -98,30 +68,32 @@ export default function HomePage() {
                 <Search className="w-5 h-5 text-white/40" />
                 <input
                   type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                   placeholder="Cari produk, brand, atau kategori..."
                   className="flex-1 bg-transparent text-white placeholder:text-white/30 focus:outline-none"
                   onFocus={() => setSearchFocused(true)}
-                  onBlur={() => setSearchFocused(false)}
+                  onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                 />
-                <button className="p-2 hover:bg-white/10 rounded-xl transition-colors group">
+                <Link
+                  href="/products"
+                  className="p-2 hover:bg-white/10 rounded-xl transition-colors group"
+                >
                   <Camera className="w-5 h-5 text-primary group-hover:text-primary-light transition-colors" />
-                </button>
+                </Link>
               </div>
-              {/* Trending Searches */}
               {searchFocused && (
-                <div className="absolute top-full left-0 right-0 mt-2 glass rounded-2xl p-4 animate-slide-up">
-                  <p className="text-xs text-white/40 mb-3 font-medium">
-                    TRENDING
-                  </p>
+                <div className="absolute top-full left-0 right-0 mt-2 glass rounded-2xl p-4 animate-slide-up z-10">
+                  <p className="text-xs text-white/40 mb-3 font-medium">TRENDING</p>
                   <div className="flex flex-wrap gap-2">
-                    {[
-                      "Wireless Headphone",
-                      "Sepatu Running",
-                      "Smartwatch",
-                      "Tas Ransel",
-                    ].map((item) => (
+                    {trending.map((item) => (
                       <button
                         key={item}
+                        type="button"
+                        onClick={() => {
+                          setSearch(item);
+                          router.push(`/products?q=${encodeURIComponent(item)}`);
+                        }}
                         className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white/60 hover:text-white transition-all"
                       >
                         {item}
@@ -130,7 +102,7 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
-            </div>
+            </form>
           </div>
         </div>
       </section>
@@ -140,15 +112,16 @@ export default function HomePage() {
         <h2 className="text-xl font-semibold mb-6">Kategori</h2>
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
           {categories.map((cat) => (
-            <button
+            <Link
               key={cat.name}
+              href={`/products?category=${encodeURIComponent(cat.name)}`}
               className="flex flex-col items-center gap-2 min-w-[90px] p-4 glass rounded-2xl glass-hover group"
             >
               <span className="text-2xl">{cat.icon}</span>
               <span className="text-xs text-white/60 group-hover:text-white transition-colors">
                 {cat.name}
               </span>
-            </button>
+            </Link>
           ))}
         </div>
       </section>
@@ -157,15 +130,18 @@ export default function HomePage() {
       <section className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">Produk Terpopuler</h2>
-          <button className="text-sm text-primary flex items-center gap-1 hover:gap-2 transition-all">
+          <Link
+            href="/products"
+            className="text-sm text-primary flex items-center gap-1 hover:gap-2 transition-all"
+          >
             Lihat Semua <ChevronRight className="w-4 h-4" />
-          </button>
+          </Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {featuredProducts.map((product) => (
             <Link
               key={product.id}
-              href={`/product/${product.id}`}
+              href={`/products/${product.id}`}
               className="card overflow-hidden group"
             >
               <div className="aspect-square overflow-hidden rounded-t-2xl bg-surface-lighter">
@@ -224,7 +200,9 @@ export default function HomePage() {
               Raih jutaan pembeli potensial. Dashboard penjual modern dengan
               analitik real-time.
             </p>
-            <button className="btn-primary">Buka Toko Gratis</button>
+            <Link href="/seller" className="btn-primary inline-block">
+              Buka Toko Gratis
+            </Link>
           </div>
         </div>
       </section>
