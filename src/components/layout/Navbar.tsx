@@ -11,10 +11,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
+import { useAuth } from "@/lib/auth";
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { totalItems } = useCart();
+  const { user, loading, signOut } = useAuth();
 
   return (
     <nav className="nav-blur">
@@ -47,12 +49,25 @@ export function Navbar() {
               </span>
             )}
           </Link>
-          <Link href="/auth" className="p-2 hover:bg-white/10 rounded-xl transition-colors hidden sm:block">
-            <User className="w-5 h-5" />
-          </Link>
-          <Link href="/auth" className="btn-primary text-sm py-2 px-4 hidden sm:block">
-            Masuk
-          </Link>
+          {!loading && user ? (
+            <>
+              <Link href="/auth" className="p-2 hover:bg-white/10 rounded-xl transition-colors hidden sm:block">
+                <User className="w-5 h-5" />
+              </Link>
+              <button onClick={signOut} className="btn-primary text-sm py-2 px-4 hidden sm:block">
+                Keluar
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/auth" className="p-2 hover:bg-white/10 rounded-xl transition-colors hidden sm:block">
+                <User className="w-5 h-5" />
+              </Link>
+              <Link href="/auth" className="btn-primary text-sm py-2 px-4 hidden sm:block">
+                Masuk
+              </Link>
+            </>
+          )}
           <button
             className="md:hidden p-2 hover:bg-white/10 rounded-xl"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -72,9 +87,15 @@ export function Navbar() {
               Keranjang {totalItems > 0 && `(${totalItems})`}
             </Link>
             <hr className="border-border" />
-            <Link href="/auth" className="block btn-primary text-center text-sm py-2.5">
-              Masuk / Daftar
-            </Link>
+            {!loading && user ? (
+              <button onClick={signOut} className="block btn-primary text-center text-sm py-2.5 w-full">
+                Keluar
+              </button>
+            ) : (
+              <Link href="/auth" className="block btn-primary text-center text-sm py-2.5">
+                Masuk / Daftar
+              </Link>
+            )}
           </div>
         </div>
       )}

@@ -2,18 +2,45 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, Eye, EyeOff, Chrome } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Chrome, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase-browser";
 
 export default function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "", name: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert(mode === "login" ? "Login berhasil! (demo)" : "Pendaftaran berhasil! (demo)");
-    router.push("/");
+    setLoading(true);
+    setError("");
+
+    try {
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email: form.email,
+          password: form.password,
+          options: { data: { name: form.name } },
+        });
+        if (error) throw error;
+        alert("Daftar berhasil! Cek email kamu untuk konfirmasi.");
+      }
+      router.push("/");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || "Terjadi kesalahan");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -29,7 +56,15 @@ export default function AuthPage() {
           </p>
         </div>
 
-        <button className="w-full glass rounded-2xl py-3 md:py-3.5 flex items-center justify-center gap-2 md:gap-3 glass-hover text-sm md:text-base">
+        <button
+          onClick={async () => {
+            await supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: { redirectTo: window.location.origin },
+            });
+          }}
+          className="w-full glass rounded-2xl py-3 md:py-3.5 flex items-center justify-center gap-2 md:gap-3 glass-hover text-sm md:text-base"
+        >
           <Chrome className="w-4 h-4 md:w-5 md:h-5" />
           Lanjutkan dengan Google
         </button>
@@ -39,6 +74,12 @@ export default function AuthPage() {
           <span className="text-[10px] md:text-xs text-white/40">atau</span>
           <div className="flex-1 h-px bg-border" />
         </div>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs md:text-sm px-3 md:px-4 py-2 md:py-3 rounded-xl">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
           {mode === "register" && (
@@ -71,7 +112,8 @@ export default function AuthPage() {
             </div>
           )}
 
-          <button type="submit" className="btn-primary w-full text-sm md:text-base py-2.5 md:py-3">
+          <button type="submit" disabled={loading} className="btn-primary w-full text-sm md:text-base py-2.5 md:py-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {mode === "login" ? "Masuk" : "Daftar"}
           </button>
         </form>
