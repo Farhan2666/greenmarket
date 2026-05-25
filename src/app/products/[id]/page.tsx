@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,20 +17,52 @@ import {
   Store,
   MapPin,
   Check,
+  Loader2,
 } from "lucide-react";
-import { products } from "@/lib/data";
+import { products as fallbackProducts } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
+import type { Product } from "@/lib/data";
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { addItem } = useCart();
-  const product = products.find((p) => p.id === Number(id));
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
+
+  useEffect(() => {
+    async function fetchProduct() {
+      try {
+        const res = await fetch(`/api/products/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProduct(data as Product);
+        } else {
+          const fallback = fallbackProducts.find((p) => p.id === Number(id));
+          setProduct(fallback || null);
+        }
+      } catch {
+        const fallback = fallbackProducts.find((p) => p.id === Number(id));
+        setProduct(fallback || null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProduct();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   if (!product) {
     return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,16 +14,40 @@ import {
   TrendingUp,
   Shield,
   Truck,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { products, categories } from "@/lib/data";
+import { products as fallbackProducts, categories } from "@/lib/data";
+import type { Product } from "@/lib/data";
 
 export default function HomePage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
 
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+
   const trending = ["Wireless Headphone", "Sepatu Running", "Smartwatch", "Tas Ransel"];
+
+  useEffect(() => {
+    async function fetchFeatured() {
+      try {
+        const res = await fetch("/api/products");
+        if (res.ok) {
+          const data = await res.json();
+          setFeaturedProducts((data as Product[]).slice(0, 4));
+        } else {
+          setFeaturedProducts(fallbackProducts.slice(0, 4));
+        }
+      } catch {
+        setFeaturedProducts(fallbackProducts.slice(0, 4));
+      } finally {
+        setFeaturedLoading(false);
+      }
+    }
+    fetchFeatured();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,8 +55,6 @@ export default function HomePage() {
       router.push(`/products?q=${encodeURIComponent(search)}`);
     }
   };
-
-  const featuredProducts = products.slice(0, 4);
 
   return (
     <div className="space-y-12 md:space-y-16 pb-20">
@@ -142,7 +164,11 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          {featuredProducts.map((product) => (
+          {featuredLoading ? (
+            <div className="col-span-full flex justify-center py-8">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          ) : featuredProducts.map((product) => (
             <Link
               key={product.id}
               href={`/products/${product.id}`}

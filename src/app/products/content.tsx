@@ -1,21 +1,46 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, X, Star } from "lucide-react";
+import { Search, SlidersHorizontal, X, Star, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { products, categories } from "@/lib/data";
+import { products as fallbackProducts, categories } from "@/lib/data";
+import type { Product } from "@/lib/data";
 
 export default function ProductsContent() {
   const searchParams = useSearchParams();
   const urlQ = searchParams.get("q") || "";
   const urlCategory = searchParams.get("category") || "";
 
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(urlQ);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(urlCategory || null);
   const [sortBy, setSortBy] = useState<string>("terbaru");
   const [showFilters, setShowFilters] = useState(urlQ || urlCategory ? true : false);
+
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const params = new URLSearchParams();
+        if (urlQ) params.set("q", urlQ);
+        if (urlCategory) params.set("category", urlCategory);
+        const res = await fetch(`/api/products?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProducts(data as Product[]);
+        } else {
+          setProducts(fallbackProducts);
+        }
+      } catch {
+        setProducts(fallbackProducts);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProducts();
+  }, []);
 
   const filtered = useMemo(() => {
     let result = [...products];
@@ -38,7 +63,7 @@ export default function ProductsContent() {
       case "rating": result.sort((a, b) => b.rating - a.rating); break;
     }
     return result;
-  }, [search, selectedCategory, sortBy]);
+  }, [products, search, selectedCategory, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-5 md:space-y-6">
@@ -130,7 +155,11 @@ export default function ProductsContent() {
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 md:py-20 space-y-3">
           <p className="text-sm md:text-lg text-white/40">Produk tidak ditemukan</p>
           <button
