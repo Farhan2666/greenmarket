@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { CartProvider } from "@/lib/cart";
+import { StarField } from "@/components/ui/StarField";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,11 +19,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" className="dark">
-      <body className={inter.className}>
-        <CartProvider>
-          <Navbar />
-          <main className="pt-20 min-h-screen">{children}</main>
-        </CartProvider>
+      <body className={`${inter.className} relative`}>
+        <StarField />
+        <div className="relative z-10">
+          <CartProvider>
+            <Navbar />
+            <main className="pt-16 min-h-screen">{children}</main>
+          </CartProvider>
+        </div>
       </body>
     </html>
   );

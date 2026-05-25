@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff, Chrome } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -13,124 +12,73 @@ export default function AuthPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(
-      mode === "login"
-        ? "Login berhasil! (demo)"
-        : "Pendaftaran berhasil! (demo)"
-    );
+    alert(mode === "login" ? "Login berhasil! (demo)" : "Pendaftaran berhasil! (demo)");
     router.push("/");
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-8">
-        {/* Header */}
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md space-y-6 md:space-y-8">
         <div className="text-center">
-          <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-black font-bold text-xl">G</span>
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-3 md:mb-4">
+            <span className="text-black font-bold text-lg md:text-xl">G</span>
           </div>
-          <h1 className="text-2xl font-bold">
-            {mode === "login" ? "Masuk" : "Daftar Akun"}
-          </h1>
-          <p className="text-white/40 mt-1">
-            {mode === "login"
-              ? "Selamat datang kembali"
-              : "Mulai berbelanja di GreenMarket"}
+          <h1 className="text-xl md:text-2xl font-bold">{mode === "login" ? "Masuk" : "Daftar Akun"}</h1>
+          <p className="text-xs md:text-sm text-white/40 mt-1">
+            {mode === "login" ? "Selamat datang kembali" : "Mulai berbelanja di GreenMarket"}
           </p>
         </div>
 
-        {/* Google Login */}
-        <button className="w-full glass rounded-2xl py-3.5 flex items-center justify-center gap-3 glass-hover">
-          <Chrome className="w-5 h-5" />
+        <button className="w-full glass rounded-2xl py-3 md:py-3.5 flex items-center justify-center gap-2 md:gap-3 glass-hover text-sm md:text-base">
+          <Chrome className="w-4 h-4 md:w-5 md:h-5" />
           Lanjutkan dengan Google
         </button>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
           <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-white/40">atau</span>
+          <span className="text-[10px] md:text-xs text-white/40">atau</span>
           <div className="flex-1 h-px bg-border" />
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
           {mode === "register" && (
             <div>
-              <label className="text-sm text-white/60 mb-1.5 block">Nama</label>
-              <input
-                type="text"
-                placeholder="Masukkan nama"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="input-field"
-                required
-              />
+              <label className="text-xs md:text-sm text-white/60 mb-1 md:mb-1.5 block">Nama</label>
+              <input type="text" placeholder="Masukkan nama" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field text-sm md:text-base" required />
             </div>
           )}
           <div>
-            <label className="text-sm text-white/60 mb-1.5 block">Email</label>
+            <label className="text-xs md:text-sm text-white/60 mb-1 md:mb-1.5 block">Email</label>
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-              <input
-                type="email"
-                placeholder="Masukkan email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="input-field pl-11"
-                required
-              />
+              <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-white/40" />
+              <input type="email" placeholder="Masukkan email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-field pl-10 md:pl-11 text-sm md:text-base" required />
             </div>
           </div>
           <div>
-            <label className="text-sm text-white/60 mb-1.5 block">
-              Password
-            </label>
+            <label className="text-xs md:text-sm text-white/60 mb-1 md:mb-1.5 block">Password</label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Masukkan password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="input-field pl-11"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
-              >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
+              <Lock className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-white/40" />
+              <input type={showPassword ? "text" : "password"} placeholder="Masukkan password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field pl-10 md:pl-11 text-sm md:text-base" required />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white">
+                {showPassword ? <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />}
               </button>
             </div>
           </div>
 
           {mode === "login" && (
             <div className="text-right">
-              <button
-                type="button"
-                className="text-xs text-primary hover:underline"
-              >
-                Lupa password?
-              </button>
+              <button type="button" className="text-[10px] md:text-xs text-primary hover:underline">Lupa password?</button>
             </div>
           )}
 
-          <button type="submit" className="btn-primary w-full">
+          <button type="submit" className="btn-primary w-full text-sm md:text-base py-2.5 md:py-3">
             {mode === "login" ? "Masuk" : "Daftar"}
           </button>
         </form>
 
-        {/* Toggle Mode */}
-        <p className="text-center text-sm text-white/40">
+        <p className="text-center text-xs md:text-sm text-white/40">
           {mode === "login" ? "Belum punya akun? " : "Sudah punya akun? "}
-          <button
-            onClick={() => setMode(mode === "login" ? "register" : "login")}
-            className="text-primary hover:underline font-medium"
-          >
+          <button onClick={() => setMode(mode === "login" ? "register" : "login")} className="text-primary hover:underline font-medium">
             {mode === "login" ? "Daftar" : "Masuk"}
           </button>
         </p>
