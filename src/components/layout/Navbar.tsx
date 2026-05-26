@@ -27,9 +27,9 @@ export function Navbar() {
 <Link href="/" className="flex items-center gap-2">
   <Image
     src="/logo.svg"
-    alt="GreenMarket logo"
-    width={100}
-    height={30}
+    alt="GreenMarket"
+    width={140}
+    height={28}
     className="h-7 sm:h-8 w-auto"
     priority
   />

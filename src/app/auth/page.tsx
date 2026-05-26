@@ -67,8 +67,8 @@ export default function AuthPage() {
             <Image
               src="/logo.svg"
               alt="GreenMarket"
-              width={160}
-              height={48}
+              width={200}
+              height={40}
               className="h-10 md:h-12 w-auto"
               priority
             />
