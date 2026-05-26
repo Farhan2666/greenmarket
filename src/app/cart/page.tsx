@@ -87,9 +87,9 @@ export default function CartPage() {
               <span className="text-primary">Rp{totalPrice.toLocaleString("id-ID")}</span>
             </div>
           </div>
-          <button className="btn-primary w-full flex items-center justify-center gap-2 text-xs md:text-sm py-2.5 md:py-3">
+          <Link href="/checkout" className="btn-primary w-full flex items-center justify-center gap-2 text-xs md:text-sm py-2.5 md:py-3">
             Checkout <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
-          </button>
+          </Link>
         </div>
       </div>
     </div>

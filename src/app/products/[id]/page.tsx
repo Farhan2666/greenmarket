@@ -18,18 +18,30 @@ import {
   MapPin,
   Check,
   Loader2,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { products as fallbackProducts } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
+import { useAuth } from "@/lib/auth";
 import type { Product } from "@/lib/data";
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { addItem } = useCart();
+  const { session } = useAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
+  const [wishlisted, setWishlisted] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -56,6 +68,34 @@ export default function ProductDetailPage() {
     fetchProduct();
   }, [id]);
 
+  useEffect(() => {
+    async function fetchReviews() {
+      try {
+        const res = await fetch(`/api/reviews?productId=p${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setReviews(data);
+        }
+      } catch {}
+      setReviewsLoading(false);
+    }
+    if (id) fetchReviews();
+  }, [id]);
+
+  useEffect(() => {
+    async function checkWishlist() {
+      if (!session) return;
+      try {
+        const res = await fetch("/api/wishlist", { headers: { Authorization: `Bearer ${session?.access_token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          setWishlisted(data.some((w: any) => w.product?.id === `p${id}`));
+        }
+      } catch {}
+    }
+    if (id) checkWishlist();
+  }, [id, session]);
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 flex items-center justify-center">
@@ -79,6 +119,45 @@ export default function ProductDetailPage() {
     for (let i = 0; i < quantity; i++) addItem(product);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
+  };
+
+  const toggleWishlist = async () => {
+    if (!session) { router.push("/auth"); return; }
+    setWishlistLoading(true);
+    try {
+      const res = await fetch("/api/wishlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ product_id: `p${id}` }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWishlisted(data.wishlisted);
+      }
+    } catch {}
+    setWishlistLoading(false);
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingReview(true);
+    setReviewError("");
+    setReviewSuccess("");
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ product_id: `p${id}`, ...reviewForm }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setReviews([data, ...reviews]);
+      setReviewSuccess("Review terkirim!");
+      setReviewForm({ rating: 5, comment: "" });
+    } catch (err: any) {
+      setReviewError(err.message);
+    }
+    setSubmittingReview(false);
   };
 
   return (
@@ -181,7 +260,9 @@ export default function ProductDetailPage() {
             >
               {addedToCart ? <><Check className="w-4 h-4" /> Ditambahkan</> : <><ShoppingCart className="w-4 h-4" /> Keranjang</>}
             </button>
-            <button className="btn-outline p-3 md:p-3.5"><Heart className="w-4 h-4 md:w-5 md:h-5" /></button>
+            <button onClick={toggleWishlist} disabled={wishlistLoading} className={cn("btn-outline p-3 md:p-3.5 transition-all", wishlisted && "border-red-500/50 bg-red-500/10")}>
+              <Heart className={cn("w-4 h-4 md:w-5 md:h-5", wishlisted ? "fill-red-500 text-red-500" : "")} />
+            </button>
             <button className="btn-outline p-3 md:p-3.5"><Share2 className="w-4 h-4 md:w-5 md:h-5" /></button>
           </div>
 
@@ -200,6 +281,77 @@ export default function ProductDetailPage() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Reviews */}
+      <div className="max-w-7xl mx-auto px-0 mt-8 md:mt-12 space-y-4 md:space-y-6">
+        <h2 className="text-lg md:text-xl font-bold flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+          Ulasan ({reviews.length})
+        </h2>
+
+        {/* Review Form */}
+        {session ? (
+          <form onSubmit={handleReviewSubmit} className="glass rounded-2xl p-4 md:p-5 space-y-3">
+            <div className="flex items-center gap-1">
+              {[1,2,3,4,5].map((star) => (
+                <button key={star} type="button" onClick={() => setReviewForm({ ...reviewForm, rating: star })}>
+                  <Star className={cn("w-4 h-4 md:w-5 md:h-5", star <= reviewForm.rating ? "fill-yellow-500 text-yellow-500" : "text-white/20")} />
+                </button>
+              ))}
+              <span className="text-xs text-white/40 ml-2">{reviewForm.rating}/5</span>
+            </div>
+            <textarea
+              placeholder="Tulis ulasan..."
+              value={reviewForm.comment}
+              onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+              className="input-field w-full text-sm resize-none h-20"
+            />
+            {reviewError && <p className="text-xs text-red-400">{reviewError}</p>}
+            {reviewSuccess && <p className="text-xs text-emerald-400">{reviewSuccess}</p>}
+            <button type="submit" disabled={submittingReview} className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 disabled:opacity-50">
+              {submittingReview ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+              Kirim Ulasan
+            </button>
+          </form>
+        ) : (
+          <div className="glass rounded-2xl p-4 text-center">
+            <p className="text-xs md:text-sm text-white/40">
+              <Link href="/auth" className="text-primary hover:underline">Masuk</Link> dulu untuk memberi ulasan
+            </p>
+          </div>
+        )}
+
+        {/* Reviews List */}
+        {reviewsLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 text-primary animate-spin" /></div>
+        ) : reviews.length === 0 ? (
+          <p className="text-xs md:text-sm text-white/40 text-center py-6">Belum ada ulasan</p>
+        ) : (
+          <div className="space-y-3">
+            {reviews.map((review: any) => (
+              <div key={review.id} className="glass rounded-2xl p-3 md:p-4">
+                <div className="flex items-center gap-2 md:gap-3 mb-2">
+                  <div className="w-7 h-7 md:w-8 md:h-8 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
+                    <span className="text-[10px] md:text-xs font-bold text-primary">
+                      {(review.user?.name || "U")[0]}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs md:text-sm font-medium">{review.user?.name || "User"}</p>
+                    <p className="text-[10px] text-white/40">{new Date(review.created_at).toLocaleDateString("id-ID")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-0.5 mb-1.5">
+                  {[1,2,3,4,5].map((s) => (
+                    <Star key={s} className={cn("w-3 h-3", s <= review.rating ? "fill-yellow-500 text-yellow-500" : "text-white/20")} />
+                  ))}
+                </div>
+                {review.comment && <p className="text-xs md:text-sm text-white/60">{review.comment}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

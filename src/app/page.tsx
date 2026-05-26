@@ -97,7 +97,7 @@ export default function HomePage() {
                   onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                 />
                 <Link
-                  href="/products"
+                  href="/ai-search"
                   className="p-1.5 md:p-2 hover:bg-white/10 rounded-xl transition-colors group shrink-0"
                 >
                   <Camera className="w-4 h-4 md:w-5 md:h-5 text-primary group-hover:text-primary-light transition-colors" />
