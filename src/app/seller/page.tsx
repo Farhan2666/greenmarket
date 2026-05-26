@@ -2,17 +2,45 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Store, Package, TrendingUp, DollarSign, ShoppingBag, Loader2, ChevronLeft, Plus, LogIn } from "lucide-react";
+import { Store, Package, TrendingUp, DollarSign, ShoppingBag, Loader2, ChevronLeft, Plus, LogIn, Check, X, Truck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case "WAITING_PAYMENT": return "text-yellow-400";
+    case "PAID": return "text-blue-400";
+    case "CONFIRMED": return "text-primary";
+    case "SHIPPED": return "text-primary";
+    case "DELIVERED": return "text-emerald-400";
+    case "CANCELLED": return "text-red-400";
+    default: return "text-white/40";
+  }
+}
+
+function getStatusLabel(status: string) {
+  switch (status) {
+    case "WAITING_PAYMENT": return "Menunggu Pembayaran";
+    case "PAID": return "Sudah Dibayar";
+    case "CONFIRMED": return "Dikonfirmasi";
+    case "SHIPPED": return "Dikirim";
+    case "DELIVERED": return "Selesai";
+    case "CANCELLED": return "Dibatalkan";
+    default: return status;
+  }
+}
 
 export default function SellerPage() {
   const router = useRouter();
   const { user, session, loading: authLoading } = useAuth();
   const [data, setData] = useState<any>(null);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -33,7 +61,22 @@ export default function SellerPage() {
       } catch (e) { setError("Network error"); }
       setLoading(false);
     }
+
+    async function fetchOrders() {
+      try {
+        const res = await fetch("/api/seller/orders", {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (res.ok) {
+          const result = await res.json();
+          setOrders(result || []);
+        }
+      } catch (e) { /* ignore */ }
+      setOrdersLoading(false);
+    }
+
     fetchSellerData();
+    fetchOrders();
   }, [user, session, authLoading, router]);
 
   async function handleRegisterSeller() {
@@ -63,6 +106,39 @@ export default function SellerPage() {
     }
     setRegistering(false);
     setLoading(false);
+  }
+
+  async function handleOrderAction(orderId: string, action: string) {
+    setActionLoading(orderId);
+    try {
+      const res = await fetch("/api/seller/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ orderId, action }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        alert(d.error);
+        return;
+      }
+
+      const ordersRes = await fetch("/api/seller/orders", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (ordersRes.ok) {
+        const result = await ordersRes.json();
+        setOrders(result || []);
+      }
+
+      const sellerRes = await fetch("/api/seller", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (sellerRes.ok) setData(await sellerRes.json());
+
+    } catch (e: any) {
+      alert(e.message);
+    }
+    setActionLoading(null);
   }
 
   if (authLoading) {
@@ -146,7 +222,7 @@ export default function SellerPage() {
         {[
           { label: "Produk", value: data?.products?.length || 0, icon: Package },
           { label: "Revenue", value: `Rp${(data?.revenue || 0).toLocaleString("id-ID")}`, icon: DollarSign },
-          { label: "Pesanan", value: data?.orders?.length || 0, icon: ShoppingBag },
+          { label: "Pesanan", value: data?.ordersCount || 0, icon: ShoppingBag },
           { label: "Rating", value: data?.rating || 0, icon: TrendingUp },
         ].map((s) => (
           <div key={s.label} className="glass rounded-2xl p-3 md:p-4">
@@ -155,6 +231,115 @@ export default function SellerPage() {
             <p className="text-[10px] md:text-xs text-white/40 mt-0.5">{s.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Orders */}
+      <div className="space-y-3">
+        <h2 className="text-sm md:text-base font-semibold flex items-center gap-2">
+          <ShoppingBag className="w-4 h-4 text-primary" /> Pesanan Masuk
+        </h2>
+
+        {ordersLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 text-primary animate-spin" /></div>
+        ) : orders.length === 0 ? (
+          <div className="glass rounded-2xl p-6 text-center">
+            <p className="text-sm text-white/40">Belum ada pesanan</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {orders.map((order: any) => {
+              const paidOrder = order.status === "PAID";
+              const confirmable = order.status === "PAID" || order.status === "CONFIRMED";
+              const shippable = order.status === "CONFIRMED";
+
+              return (
+                <div key={order.id} className="glass rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-white/40 font-mono">#{order.id?.slice(0, 8)}</span>
+                    <span className={cn("text-[10px] font-medium", getStatusColor(order.status))}>
+                      {getStatusLabel(order.status)}
+                    </span>
+                  </div>
+
+                  {/* Buyer Info */}
+                  <div className="bg-surface-lighter rounded-xl p-3 space-y-1 text-xs">
+                    <p><span className="text-white/40">Pembeli:</span> {order.buyer?.name || order.buyer_name || "-"}</p>
+                    <p><span className="text-white/40">Kontak:</span> {order.buyer_phone || "-"}</p>
+                    <p><span className="text-white/40">Alamat:</span> {order.buyer_address || "-"}</p>
+                  </div>
+
+                  {/* Items */}
+                  <div className="space-y-1">
+                    {(order.items || []).map((item: any) => (
+                      <div key={item.id} className="flex items-center gap-2">
+                        {item.product?.images?.[0] && (
+                          <img src={item.product.images[0]} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs truncate">{item.product?.name || "Product"}</p>
+                          <p className="text-[10px] text-white/40">{item.quantity}x @ Rp{item.price?.toLocaleString("id-ID")}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-between text-xs pt-1 border-t border-border">
+                    <span className="text-white/40">{new Date(order.created_at).toLocaleDateString("id-ID")}</span>
+                    <span className="font-bold text-primary">Rp{order.total?.toLocaleString("id-ID")}</span>
+                  </div>
+
+                  {/* Payment Proof */}
+                  {order.status === "PAID" && order.payment_proof && (
+                    <div className="pt-1 border-t border-border">
+                      <a
+                        href={order.payment_proof}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-primary hover:underline"
+                      >
+                        Lihat bukti pembayaran
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-1 border-t border-border">
+                    {order.status === "PAID" && (
+                      <>
+                        <button
+                          onClick={() => handleOrderAction(order.id, "confirm")}
+                          disabled={actionLoading === order.id}
+                          className="btn-primary text-[10px] py-1.5 px-3 flex items-center gap-1 disabled:opacity-50"
+                        >
+                          {actionLoading === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                          Konfirmasi
+                        </button>
+                        <button
+                          onClick={() => handleOrderAction(order.id, "reject")}
+                          disabled={actionLoading === order.id}
+                          className="text-[10px] py-1.5 px-3 glass rounded-xl hover:bg-red-500/10 text-red-400 flex items-center gap-1 disabled:opacity-50"
+                        >
+                          {actionLoading === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                          Tolak
+                        </button>
+                      </>
+                    )}
+                    {order.status === "CONFIRMED" && (
+                      <button
+                        onClick={() => handleOrderAction(order.id, "ship")}
+                        disabled={actionLoading === order.id}
+                        className="btn-primary text-[10px] py-1.5 px-3 flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {actionLoading === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Truck className="w-3 h-3" />}
+                        Kirim
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Produk */}

@@ -44,18 +44,23 @@ model Product {
 }
 
 model Order {
-  id            String     @id @default(cuid())
-  userId        String
-  user          User       @relation(fields: [userId], references: [id])
-  status        OrderStatus @default(PENDING)
-  total         Int
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  items         OrderItem[]
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id])
+  status          OrderStatus @default(WAITING_PAYMENT)
+  total           Int
+  paymentMethod   String     @default("")
+  shippingAddress Json       @default("{}")
+  paymentProof    String     @default("")
+  paidAt          DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  items           OrderItem[]
 }
 
 enum OrderStatus {
-  PENDING
+  WAITING_PAYMENT
+  PAID
   CONFIRMED
   SHIPPED
   DELIVERED

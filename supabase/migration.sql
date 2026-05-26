@@ -26,8 +26,12 @@ CREATE TABLE IF NOT EXISTS "Product" (
 CREATE TABLE IF NOT EXISTS "Order" (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     user_id TEXT NOT NULL REFERENCES "User"(id),
-    status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED')),
+    status TEXT NOT NULL DEFAULT 'WAITING_PAYMENT' CHECK (status IN ('WAITING_PAYMENT', 'PAID', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED')),
     total INTEGER NOT NULL,
+    payment_method TEXT DEFAULT '',
+    shipping_address JSONB DEFAULT '{}',
+    payment_proof TEXT DEFAULT '',
+    paid_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

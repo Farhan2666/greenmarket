@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   User, Package, LogOut, ChevronRight, Mail, Calendar,
-  ShoppingBag, Loader2, Shield, Clock, ArrowRight, Store
+  ShoppingBag, Loader2, Shield, Clock, ArrowRight, Store,
+  Upload, Check, X, AlertCircle
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase-browser";
 
 interface ProfileData {
   id: string;
@@ -21,8 +23,9 @@ interface ProfileData {
 
 function getStatusColor(status: string) {
   switch (status) {
-    case "PENDING": return "text-yellow-400";
-    case "CONFIRMED": return "text-blue-400";
+    case "WAITING_PAYMENT": return "text-yellow-400";
+    case "PAID": return "text-blue-400";
+    case "CONFIRMED": return "text-primary";
     case "SHIPPED": return "text-primary";
     case "DELIVERED": return "text-emerald-400";
     case "CANCELLED": return "text-red-400";
@@ -32,7 +35,8 @@ function getStatusColor(status: string) {
 
 function getStatusLabel(status: string) {
   switch (status) {
-    case "PENDING": return "Menunggu";
+    case "WAITING_PAYMENT": return "Menunggu Pembayaran";
+    case "PAID": return "Dibayar";
     case "CONFIRMED": return "Dikonfirmasi";
     case "SHIPPED": return "Dikirim";
     case "DELIVERED": return "Selesai";
@@ -51,6 +55,8 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     if (authLoading) return;
@@ -90,6 +96,42 @@ export default function ProfilePage() {
       setEditing(false);
     }
     setSaving(false);
+  };
+
+  const handleUploadProof = async (orderId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+    if (!allowedTypes.includes(file.type)) { alert("Hanya file JPEG, JPG, dan PNG"); return; }
+    if (file.size > 2 * 1024 * 1024) { alert("Maks 2MB"); return; }
+
+    setUploadingOrderId(orderId);
+    try {
+      const path = `payment-proofs/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: uploadError } = await supabase.storage
+        .from("payment-proofs")
+        .upload(path, file, { contentType: file.type });
+      if (uploadError) throw new Error("Gagal upload: " + uploadError.message);
+
+      const { data: publicUrlData } = supabase.storage.from("payment-proofs").getPublicUrl(path);
+
+      const res = await fetch("/api/orders/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ orderId, paymentProof: publicUrlData.publicUrl }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+
+      const ordersRes = await fetch("/api/orders", {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
+      if (ordersRes.ok) setOrders(await ordersRes.json());
+    } catch (err: any) {
+      alert(err.message);
+    }
+    setUploadingOrderId(null);
+    if (fileInputRefs.current[orderId]) fileInputRefs.current[orderId]!.value = "";
   };
 
   if (authLoading || loading) {
@@ -230,10 +272,58 @@ export default function ProfilePage() {
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between text-xs pt-1 border-t border-border">
+                <div className="flex justify-between text-xs pt-1 border-t border-border items-center">
                   <span className="text-white/40">{new Date(order.created_at).toLocaleDateString("id-ID")}</span>
                   <span className="font-bold text-primary">Rp{order.total?.toLocaleString("id-ID")}</span>
                 </div>
+
+                {/* Upload Payment Proof Button */}
+                {order.status === "WAITING_PAYMENT" && (
+                  <div className="pt-1 border-t border-border">
+                    {order.payment_proof ? (
+                      <div className="flex items-center gap-2 text-[10px] text-yellow-400">
+                        <AlertCircle className="w-3 h-3" />
+                        Menunggu konfirmasi penjual
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={(el) => { fileInputRefs.current[order.id] = el; }}
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg"
+                          onChange={(e) => handleUploadProof(order.id, e)}
+                          className="hidden"
+                        />
+                        <button
+                          onClick={() => fileInputRefs.current[order.id]?.click()}
+                          disabled={uploadingOrderId === order.id}
+                          className="btn-primary text-[10px] py-1.5 px-3 flex items-center gap-1 disabled:opacity-50"
+                        >
+                          {uploadingOrderId === order.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Upload className="w-3 h-3" />
+                          )}
+                          Upload Bukti Bayar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Payment proof link for PAID orders */}
+                {order.status === "PAID" && order.payment_proof && (
+                  <div className="pt-1 border-t border-border">
+                    <a
+                      href={order.payment_proof}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                    >
+                      <Check className="w-3 h-3" /> Lihat bukti pembayaran
+                    </a>
+                  </div>
+                )}
               </div>
             ))}
           </div>

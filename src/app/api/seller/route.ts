@@ -30,7 +30,7 @@ export async function GET() {
 
   const activeOrders = new Set(
     orderItems
-      .filter((oi: any) => oi.order?.status !== "DELIVERED" && oi.order?.status !== "CANCELLED")
+      .filter((oi: any) => !["DELIVERED", "CANCELLED"].includes(oi.order?.status))
       .map((oi: any) => oi.order?.id)
   );
 
