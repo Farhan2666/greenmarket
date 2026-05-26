@@ -50,7 +50,7 @@ export default function AuthPage() {
         await new Promise(r => setTimeout(r, 100));
       } else {
         const origin = window.location.origin;
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: form.email,
           password: form.password,
           options: {
@@ -59,8 +59,14 @@ export default function AuthPage() {
           },
         });
         if (error) throw error;
-        setSuccess("Daftar berhasil! Cek email untuk konfirmasi.");
-        return;
+
+        if (data.session) {
+          await supabase.auth.setSession(data.session);
+          await new Promise(r => setTimeout(r, 100));
+        } else {
+          setSuccess("Daftar berhasil! Cek email untuk konfirmasi.");
+          return;
+        }
       }
       router.replace("/");
       router.refresh();
