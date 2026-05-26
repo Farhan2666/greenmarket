@@ -4,18 +4,28 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-function authedClient(token: string) {
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+async function getAuthed(token: string) {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-}
-
-async function getAuthedUser(token: string) {
-  const supabase = authedClient(token);
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
+  await supabase.auth.setSession({ access_token: token, refresh_token: "" });
   return { supabase, user };
+}
+
+async function recalcRating(supabase: any, product_id: string) {
+  const { data: ratings } = await supabase
+    .from("Review")
+    .select("rating")
+    .eq("product_id", product_id);
+
+  if (ratings && ratings.length > 0) {
+    const avg = Math.round(ratings.reduce((s: number, r: any) => s + r.rating, 0) / ratings.length * 10) / 10;
+    await supabase.from("Product").update({ rating: avg }).eq("id", product_id);
+  } else {
+    await supabase.from("Product").update({ rating: 0 }).eq("id", product_id);
+  }
 }
 
 export async function GET(request: Request) {
@@ -40,7 +50,7 @@ export async function POST(request: Request) {
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const authed = await getAuthedUser(token);
+  const authed = await getAuthed(token);
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { product_id, rating, comment } = await request.json();
@@ -66,17 +76,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const { data: ratings } = await authed.supabase
-    .from("Review")
-    .select("rating")
-    .eq("product_id", product_id);
-
-  if (ratings && ratings.length > 0) {
-    const avg = Math.round(ratings.reduce((s: number, r: any) => s + r.rating, 0) / ratings.length * 10) / 10;
-    await authed.supabase.from("Product").update({ rating: avg }).eq("id", product_id);
-  }
-
+  await recalcRating(authed.supabase, product_id);
   return NextResponse.json(data);
 }
 
@@ -85,7 +85,7 @@ export async function PUT(request: Request) {
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const authed = await getAuthedUser(token);
+  const authed = await getAuthed(token);
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { reviewId, rating, comment } = await request.json();
@@ -103,32 +103,24 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const updates: Record<string, any> = {};
-  if (rating !== undefined) {
-    if (rating < 1 || rating > 5) return NextResponse.json({ error: "Invalid rating" }, { status: 400 });
-    updates.rating = rating;
+  if (rating !== undefined && (rating < 1 || rating > 5)) {
+    return NextResponse.json({ error: "Invalid rating" }, { status: 400 });
   }
-  if (comment !== undefined) updates.comment = comment;
 
-  const { data, error } = await authed.supabase
+  const updateData: Record<string, any> = {};
+  if (rating !== undefined) updateData.rating = rating;
+  if (comment !== undefined) updateData.comment = comment;
+
+  const supabase: any = authed.supabase;
+  const { data, error } = await supabase
     .from("Review")
-    .update(updates)
+    .update(updateData)
     .eq("id", reviewId)
     .select("*, user:User!user_id(id, name, avatar_url)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const { data: ratings } = await authed.supabase
-    .from("Review")
-    .select("rating")
-    .eq("product_id", review.product_id);
-
-  if (ratings && ratings.length > 0) {
-    const avg = Math.round(ratings.reduce((s: number, r: any) => s + r.rating, 0) / ratings.length * 10) / 10;
-    await authed.supabase.from("Product").update({ rating: avg }).eq("id", review.product_id);
-  }
-
+  await recalcRating(authed.supabase, review.product_id);
   return NextResponse.json(data);
 }
 
@@ -137,7 +129,7 @@ export async function DELETE(request: Request) {
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const authed = await getAuthedUser(token);
+  const authed = await getAuthed(token);
   if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
@@ -163,18 +155,6 @@ export async function DELETE(request: Request) {
     .eq("id", reviewId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const { data: ratings } = await authed.supabase
-    .from("Review")
-    .select("rating")
-    .eq("product_id", review.product_id);
-
-  if (ratings && ratings.length > 0) {
-    const avg = Math.round(ratings.reduce((s: number, r: any) => s + r.rating, 0) / ratings.length * 10) / 10;
-    await authed.supabase.from("Product").update({ rating: avg }).eq("id", review.product_id);
-  } else {
-    await authed.supabase.from("Product").update({ rating: 0 }).eq("id", review.product_id);
-  }
-
+  await recalcRating(authed.supabase, review.product_id);
   return NextResponse.json({ success: true });
 }
