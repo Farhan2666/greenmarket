@@ -3,18 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const sb = createClient(supabaseUrl, supabaseAnonKey);
 
-async function authedSupabase(token: string) {
-  const sb = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+async function getUser(token: string) {
   const { data: { user }, error } = await sb.auth.getUser(token);
   if (error || !user) return null;
-  await sb.auth.setSession({ access_token: token, refresh_token: "" });
-  return { sb, user };
+  return user;
 }
 
-async function recalcRating(sb: any, productId: string) {
+async function recalcRating(productId: string) {
   const { data: ratings } = await sb
     .from("Review")
     .select("rating")
@@ -39,7 +36,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "productId required" }, { status: 400 });
   }
 
-  const sb = createClient(supabaseUrl, supabaseAnonKey);
   const { data, error } = await sb
     .from("Review")
     .select("*, user:User!user_id(id, name, avatar_url)")
@@ -54,33 +50,33 @@ export async function POST(request: Request) {
   const token = bearerToken(request);
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const authed = await authedSupabase(token);
-  if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getUser(token);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { product_id, rating, comment } = await request.json();
   if (!product_id || !rating || rating < 1 || rating > 5) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
 
-  const { data: existing } = await authed.sb
+  const { data: existing } = await sb
     .from("Review")
     .select("id")
     .eq("product_id", product_id)
-    .eq("user_id", authed.user.id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (existing) {
     return NextResponse.json({ error: "Kamu sudah mereview produk ini" }, { status: 409 });
   }
 
-  const { data, error } = await authed.sb
+  const { data, error } = await sb
     .from("Review")
-    .insert({ product_id, user_id: authed.user.id, rating, comment })
+    .insert({ product_id, user_id: user.id, rating, comment })
     .select("*, user:User!user_id(id, name, avatar_url)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  await recalcRating(authed.sb, product_id);
+  await recalcRating(product_id);
   return NextResponse.json(data);
 }
 
@@ -88,8 +84,8 @@ export async function PUT(request: Request) {
   const token = bearerToken(request);
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const authed = await authedSupabase(token);
-  if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getUser(token);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { reviewId, rating, comment } = await request.json();
   if (!reviewId) {
@@ -99,13 +95,13 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "rating must be 1-5" }, { status: 400 });
   }
 
-  const { data: review } = await authed.sb
+  const { data: review } = await sb
     .from("Review")
     .select("user_id, product_id")
     .eq("id", reviewId)
-    .single();
+    .maybeSingle();
 
-  if (!review || review.user_id !== authed.user.id) {
+  if (!review || review.user_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -113,15 +109,16 @@ export async function PUT(request: Request) {
   if (rating !== undefined) payload.rating = rating;
   if (comment !== undefined) payload.comment = comment;
 
-  const { data, error } = await (authed.sb as any)
+  const { data, error } = await sb
     .from("Review")
     .update(payload)
     .eq("id", reviewId)
     .select("*, user:User!user_id(id, name, avatar_url)")
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  await recalcRating(authed.sb, review.product_id);
+  if (!data) return NextResponse.json({ error: "Review not found" }, { status: 404 });
+  await recalcRating(review.product_id);
   return NextResponse.json(data);
 }
 
@@ -129,8 +126,8 @@ export async function DELETE(request: Request) {
   const token = bearerToken(request);
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const authed = await authedSupabase(token);
-  if (!authed) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getUser(token);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const reviewId = searchParams.get("reviewId");
@@ -138,22 +135,22 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "reviewId required" }, { status: 400 });
   }
 
-  const { data: review } = await authed.sb
+  const { data: review } = await sb
     .from("Review")
     .select("user_id, product_id")
     .eq("id", reviewId)
-    .single();
+    .maybeSingle();
 
-  if (!review || review.user_id !== authed.user.id) {
+  if (!review || review.user_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { error } = await (authed.sb as any)
+  const { error } = await sb
     .from("Review")
     .delete()
     .eq("id", reviewId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  await recalcRating(authed.sb, review.product_id);
+  await recalcRating(review.product_id);
   return NextResponse.json({ success: true });
 }
