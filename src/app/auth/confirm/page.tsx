@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
-import { Loader2, Check, XCircle } from "lucide-react";
+import { Loader2, Check, XCircle, ArrowRight } from "lucide-react";
 
 export default function AuthConfirmPage() {
   const router = useRouter();
@@ -37,14 +37,14 @@ export default function AuthConfirmPage() {
 
         if (cancelled) return;
 
-        if (type === "recovery") {
+        if (type === "recovery" || type === "invite") {
           window.location.href = "/auth/reset";
           return;
         }
 
         setStatus("success");
-        setMessage("Email berhasil diverifikasi! Kamu sudah masuk.");
-        setTimeout(() => { window.location.href = "/"; }, 1500);
+        setMessage("Login Berhasil! Selamat datang di GreenMarket.");
+        setTimeout(() => { window.location.href = "/"; }, 2000);
       } catch (err: any) {
         if (cancelled) return;
         setStatus("error");
@@ -58,29 +58,43 @@ export default function AuthConfirmPage() {
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4">
-      <div className="w-full max-w-sm glass rounded-2xl p-8 text-center space-y-4">
+      <div className="w-full max-w-sm glass rounded-2xl p-8 text-center space-y-5">
         {status === "loading" && (
           <>
             <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
-            <p className="text-sm text-white/60">Memverifikasi...</p>
+            <p className="text-sm text-white/60">Memverifikasi akun...</p>
           </>
         )}
+
         {status === "success" && (
           <>
-            <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto">
-              <Check className="w-6 h-6 text-emerald-400" />
+            <div className="w-14 h-14 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto">
+              <Check className="w-7 h-7 text-emerald-400" />
             </div>
-            <p className="text-sm text-emerald-400">{message}</p>
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold">{message}</h2>
+              <p className="text-xs text-white/40">Kamu akan dialihkan ke dashboard dalam 2 detik</p>
+            </div>
+            <button
+              onClick={() => window.location.href = "/"}
+              className="btn-primary w-full py-2.5 text-sm flex items-center justify-center gap-2"
+            >
+              Ke Dashboard <ArrowRight className="w-4 h-4" />
+            </button>
           </>
         )}
+
         {status === "error" && (
           <>
-            <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto">
-              <XCircle className="w-6 h-6 text-red-400" />
+            <div className="w-14 h-14 bg-red-500/20 rounded-full flex items-center justify-center mx-auto">
+              <XCircle className="w-7 h-7 text-red-400" />
             </div>
-            <p className="text-sm text-red-400">{message}</p>
-            <button onClick={() => router.push("/auth")} className="btn-primary text-sm px-4 py-2">
-              Kembali ke Login
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold">Verifikasi Gagal</h2>
+              <p className="text-sm text-red-400">{message}</p>
+            </div>
+            <button onClick={() => router.push("/auth")} className="btn-primary w-full py-2.5 text-sm">
+              Kembali ke Halaman Login
             </button>
           </>
         )}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Mail, Lock, Eye, EyeOff, Chrome, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Chrome, Loader2, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase-browser";
 
 export default function AuthPage() {
@@ -13,6 +13,14 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset") === "success") {
+      setSuccess("Password berhasil diubah! Silakan login dengan password baru.");
+      window.history.replaceState({}, "", "/auth");
+    }
+  }, []);
   const [form, setForm] = useState({ email: "", password: "", name: "" });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,7 +118,8 @@ export default function AuthPage() {
           </div>
         )}
         {success && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs md:text-sm px-3 md:px-4 py-2 md:py-3 rounded-xl">
+          <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs md:text-sm px-3 md:px-4 py-2 md:py-3 rounded-xl flex items-center gap-2">
+            <Check className="w-4 h-4 shrink-0" />
             {success}
           </div>
         )}
