@@ -20,6 +20,10 @@ import {
   Loader2,
   MessageSquare,
   Send,
+  Pencil,
+  Trash2,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import { products as fallbackProducts } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -42,6 +46,10 @@ export default function ProductDetailPage() {
   const [reviewSuccess, setReviewSuccess] = useState("");
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ rating: 5, comment: "" });
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+  const [reviewActionLoading, setReviewActionLoading] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -158,6 +166,59 @@ export default function ProductDetailPage() {
       setReviewError(err.message);
     }
     setSubmittingReview(false);
+  };
+
+  const startEdit = (review: any) => {
+    setEditingReviewId(review.id);
+    setEditForm({ rating: review.rating, comment: review.comment || "" });
+  };
+
+  const cancelEdit = () => {
+    setEditingReviewId(null);
+    setEditForm({ rating: 5, comment: "" });
+  };
+
+  const handleEditSubmit = async (reviewId: string) => {
+    setReviewActionLoading(true);
+    setReviewError("");
+    setReviewSuccess("");
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ reviewId, ...editForm }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setReviews(reviews.map((r: any) => r.id === reviewId ? data : r));
+      setReviewSuccess("Review diubah!");
+      setEditingReviewId(null);
+    } catch (err: any) {
+      setReviewError(err.message);
+    }
+    setReviewActionLoading(false);
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    setReviewActionLoading(true);
+    setReviewError("");
+    setReviewSuccess("");
+    try {
+      const res = await fetch(`/api/reviews?reviewId=${reviewId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error);
+      }
+      setReviews(reviews.filter((r: any) => r.id !== reviewId));
+      setReviewSuccess("Review dihapus!");
+      setDeletingReviewId(null);
+    } catch (err: any) {
+      setReviewError(err.message);
+    }
+    setReviewActionLoading(false);
   };
 
   return (
@@ -331,23 +392,84 @@ export default function ProductDetailPage() {
           <div className="space-y-3">
             {reviews.map((review: any) => (
               <div key={review.id} className="glass rounded-2xl p-3 md:p-4">
-                <div className="flex items-center gap-2 md:gap-3 mb-2">
-                  <div className="w-7 h-7 md:w-8 md:h-8 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
-                    <span className="text-[10px] md:text-xs font-bold text-primary">
-                      {(review.user?.name || "U")[0]}
-                    </span>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 md:gap-3 mb-2">
+                    <div className="w-7 h-7 md:w-8 md:h-8 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
+                      <span className="text-[10px] md:text-xs font-bold text-primary">
+                        {(review.user?.name || "U")[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs md:text-sm font-medium">{review.user?.name || "User"}</p>
+                      <p className="text-[10px] text-white/40">{new Date(review.created_at).toLocaleDateString("id-ID")}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs md:text-sm font-medium">{review.user?.name || "User"}</p>
-                    <p className="text-[10px] text-white/40">{new Date(review.created_at).toLocaleDateString("id-ID")}</p>
+                  {review.user?.id === session?.user?.id && editingReviewId !== review.id && (
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => startEdit(review)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                        <Pencil className="w-3.5 h-3.5 text-white/40 hover:text-white" />
+                      </button>
+                      <button onClick={() => setDeletingReviewId(review.id)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                        <Trash2 className="w-3.5 h-3.5 text-white/40 hover:text-red-400" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {editingReviewId === review.id ? (
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map((s) => (
+                        <button key={s} type="button" onClick={() => setEditForm({ ...editForm, rating: s })}>
+                          <Star className={cn("w-4 h-4", s <= editForm.rating ? "fill-yellow-500 text-yellow-500" : "text-white/20")} />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={editForm.comment}
+                      onChange={(e) => setEditForm({ ...editForm, comment: e.target.value })}
+                      className="input-field w-full text-sm resize-none h-20"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditSubmit(review.id)}
+                        disabled={reviewActionLoading}
+                        className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {reviewActionLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                        Simpan
+                      </button>
+                      <button onClick={cancelEdit} className="btn-outline text-xs py-1.5 px-3 flex items-center gap-1">
+                        <X className="w-3 h-3" />
+                        Batal
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-0.5 mb-1.5">
-                  {[1,2,3,4,5].map((s) => (
-                    <Star key={s} className={cn("w-3 h-3", s <= review.rating ? "fill-yellow-500 text-yellow-500" : "text-white/20")} />
-                  ))}
-                </div>
-                {review.comment && <p className="text-xs md:text-sm text-white/60">{review.comment}</p>}
+                ) : deletingReviewId === review.id ? (
+                  <div className="flex items-center gap-2 mt-2 p-2 rounded-xl bg-red-500/10 border border-red-500/20">
+                    <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                    <span className="text-xs text-red-400 flex-1">Hapus ulasan ini?</span>
+                    <button
+                      onClick={() => handleDeleteReview(review.id)}
+                      disabled={reviewActionLoading}
+                      className="text-xs py-1 px-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg disabled:opacity-50"
+                    >
+                      {reviewActionLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Hapus"}
+                    </button>
+                    <button onClick={() => setDeletingReviewId(null)} className="text-xs py-1 px-2 hover:bg-white/10 rounded-lg text-white/60">
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-0.5 mb-1.5">
+                      {[1,2,3,4,5].map((s) => (
+                        <Star key={s} className={cn("w-3 h-3", s <= review.rating ? "fill-yellow-500 text-yellow-500" : "text-white/20")} />
+                      ))}
+                    </div>
+                    {review.comment && <p className="text-xs md:text-sm text-white/60">{review.comment}</p>}
+                  </>
+                )}
               </div>
             ))}
           </div>
