@@ -9,7 +9,7 @@ async function checkAdmin() {
     .from("User")
     .select("role")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
   return profile?.role === "ADMIN" ? user : null;
 }
 

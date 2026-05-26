@@ -21,11 +21,16 @@ export default function ProductsContent() {
   const [showFilters, setShowFilters] = useState(urlQ || urlCategory ? true : false);
 
   useEffect(() => {
+    setSearch(urlQ);
+    setSelectedCategory(urlCategory || null);
+  }, [urlQ, urlCategory]);
+
+  useEffect(() => {
     async function fetchProducts() {
+      setLoading(true);
       try {
         const params = new URLSearchParams();
         if (urlQ) params.set("q", urlQ);
-        if (urlCategory) params.set("category", urlCategory);
         const res = await fetch(`/api/products?${params}`);
         if (res.ok) {
           const data = await res.json();
@@ -40,7 +45,7 @@ export default function ProductsContent() {
       }
     }
     fetchProducts();
-  }, []);
+  }, [urlQ]);
 
   const filtered = useMemo(() => {
     let result = [...products];

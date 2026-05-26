@@ -73,25 +73,54 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         const dbItems = await dbCart("fetch");
-        if (dbItems && dbItems.length > 0) {
-          const merged: CartItem[] = dbItems.map((i: any) => ({
-            product: dbItemToProduct(i),
-            quantity: i.quantity,
-          }));
-          setItems(merged);
-          localStorage.setItem("cart", JSON.stringify(merged));
-          setSyncing(false);
-          return;
-        }
-      }
 
-      if (localItems.length > 0) {
-        setItems(localItems);
-        if (session) {
+        if (dbItems && dbItems.length > 0) {
+          // Merge: local items not yet in DB get added, existing items keep DB qty
+          const dbMap = new Map(dbItems.map((i: any) => [i.product_id, i.quantity]));
+          for (const local of localItems) {
+            const dbId = `p${local.product.id}`;
+            const existing = dbMap.get(dbId);
+            if (existing === undefined) {
+              await dbCart("add", { product_id: dbId, quantity: local.quantity });
+              dbMap.set(dbId, local.quantity);
+            }
+          }
+          // Re-fetch merged cart
+          const mergedDb = await dbCart("fetch");
+          if (mergedDb) {
+            const merged: CartItem[] = mergedDb.map((i: any) => ({
+              product: dbItemToProduct(i),
+              quantity: i.quantity,
+            }));
+            setItems(merged);
+            localStorage.setItem("cart", JSON.stringify(merged));
+            setSyncing(false);
+            return;
+          }
+        }
+
+        // DB empty but local has items → sync local to DB
+        if (localItems.length > 0) {
           for (const item of localItems) {
             await dbCart("add", { product_id: `p${item.product.id}`, quantity: item.quantity });
           }
+          const syncedDb = await dbCart("fetch");
+          if (syncedDb) {
+            const merged: CartItem[] = syncedDb.map((i: any) => ({
+              product: dbItemToProduct(i),
+              quantity: i.quantity,
+            }));
+            setItems(merged);
+            localStorage.setItem("cart", JSON.stringify(merged));
+            setSyncing(false);
+            return;
+          }
         }
+      }
+
+      // No session or no DB items — use local items
+      if (localItems.length > 0) {
+        setItems(localItems);
       }
       setSyncing(false);
     }

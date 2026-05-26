@@ -20,7 +20,7 @@ export async function GET() {
       .from("User")
       .insert({ id: user.id, email: user.email, name: user.user_metadata?.name || "", role: "BUYER" })
       .select("id, email, name, avatar_url, role, created_at")
-      .single();
+      .maybeSingle();
     if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
     return NextResponse.json(newProfile);
   }
@@ -44,7 +44,7 @@ export async function PUT(request: Request) {
     .update(updates)
     .eq("id", user.id)
     .select("id, email, name, avatar_url, role, created_at")
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

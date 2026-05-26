@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     .from("Order")
     .select("user_id, status")
     .eq("id", orderId)
-    .single();
+    .maybeSingle();
 
   if (!order) return NextResponse.json({ error: "Pesanan tidak ditemukan" }, { status: 404 });
   if (order.user_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

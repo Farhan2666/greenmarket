@@ -68,7 +68,7 @@ export default function WishlistPage() {
             if (!p) return null;
             return (
               <div key={w.id} className="card overflow-hidden group relative">
-                <Link href={`/products/${p.id.replace(/\D/g, "")}`}>
+                <Link href={`/products/${p.id}`}>
                   <div className="aspect-square overflow-hidden rounded-t-2xl bg-surface-lighter">
                     <img src={p.images?.[0] || ""} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                   </div>

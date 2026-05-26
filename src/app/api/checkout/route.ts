@@ -32,13 +32,13 @@ export async function POST(request: Request) {
       .from("Product")
       .select("id, price, stock")
       .eq("id", `p${item.productId}`)
-      .single();
+      .maybeSingle();
 
     if (!product) {
-      return NextResponse.json({ error: `${item.productName || "Product"} tidak ditemukan` }, { status: 400 });
+      return NextResponse.json({ error: "Produk tidak ditemukan" }, { status: 400 });
     }
     if (product.stock < item.quantity) {
-      return NextResponse.json({ error: `Stok ${item.productName || "Product"} tidak mencukupi (sisa ${product.stock})` }, { status: 400 });
+      return NextResponse.json({ error: `Stok tidak cukup. Tersedia: ${product.stock}` }, { status: 400 });
     }
 
     total += product.price * item.quantity;
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       shipping_address,
     })
     .select()
-    .single();
+    .maybeSingle();
 
   if (orderError) return NextResponse.json({ error: orderError.message }, { status: 500 });
 
@@ -64,6 +64,17 @@ export async function POST(request: Request) {
     .insert(orderItems.map((oi) => ({ ...oi, order_id: order.id })));
 
   if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 });
+
+  // Kurangi stock untuk tiap item
+  for (const item of orderItems) {
+    const { error: stockError } = await supabaseAdmin.rpc("decrement_stock", {
+      product_id: item.product_id,
+      amount: item.quantity,
+    });
+    if (stockError) {
+      console.error("Failed to decrement stock for", item.product_id, stockError);
+    }
+  }
 
   await supabaseAdmin.from("CartItem").delete().eq("user_id", user.id);
 

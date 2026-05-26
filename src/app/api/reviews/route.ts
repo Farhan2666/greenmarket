@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     .from("Review")
     .insert({ product_id, user_id: user.id, rating, comment })
     .select("*, user:User!user_id(id, name, avatar_url)")
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await recalcRating(product_id);

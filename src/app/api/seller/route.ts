@@ -10,7 +10,7 @@ export async function GET() {
     .from("User")
     .select("role")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile || profile.role !== "SELLER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

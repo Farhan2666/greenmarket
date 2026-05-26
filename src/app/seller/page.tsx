@@ -352,7 +352,7 @@ export default function SellerPage() {
           {data?.products?.map((p: any) => (
             <Link
               key={p.id}
-              href={`/products/${p.id.replace(/\D/g, "")}`}
+              href={`/products/${p.id}`}
               className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors"
             >
               {p.images?.[0] && (

@@ -5,7 +5,7 @@ import { getAuthenticatedUser } from "@/lib/supabase-server";
 async function requireSeller() {
   const user = await getAuthenticatedUser();
   if (!user) return null;
-  const { data: profile } = await supabaseAdmin.from("User").select("role").eq("id", user.id).single();
+  const { data: profile } = await supabaseAdmin.from("User").select("role").eq("id", user.id).maybeSingle();
   return profile?.role === "SELLER" ? user : null;
 }
 
@@ -18,15 +18,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Name, price, and category required" }, { status: 400 });
   }
 
-  const { data: maxProduct } = await supabaseAdmin
+  const { data: allProducts } = await supabaseAdmin
     .from("Product")
-    .select("id")
-    .order("id", { ascending: false })
-    .limit(1)
-    .single();
+    .select("id");
 
-  const nextNum = maxProduct?.id ? parseInt(maxProduct.id.replace(/\D/g, "")) + 1 : 5;
-  const productId = `p${nextNum}`;
+  const nums = (allProducts || [])
+    .map((p: any) => {
+      const n = parseInt(p.id.replace(/\D/g, ""));
+      return isNaN(n) ? 0 : n;
+    })
+    .filter((n: number) => n > 0);
+
+  const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+  const productId = `p${maxNum + 1}`;
 
   const { data, error } = await supabaseAdmin
     .from("Product")
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
       category, stock: Number(stock) || 0, seller_id: user.id, rating: 0,
     })
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
@@ -52,7 +56,7 @@ export async function PUT(request: Request) {
     .from("Product")
     .select("seller_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (!existing || existing.seller_id !== user.id) {
     return NextResponse.json({ error: "Not your product" }, { status: 403 });

@@ -10,7 +10,7 @@ export async function GET() {
     .from("User")
     .select("role")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile || profile.role !== "SELLER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -50,7 +50,7 @@ export async function GET() {
         .from("User")
         .select("name, email")
         .eq("id", oi.order.user_id)
-        .single();
+        .maybeSingle();
       entry.buyer = buyer || { name: "Unknown", email: "-" };
     }
   }
@@ -66,7 +66,7 @@ export async function PATCH(request: Request) {
     .from("User")
     .select("role")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile || profile.role !== "SELLER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -98,7 +98,7 @@ export async function PATCH(request: Request) {
           .from("Product")
           .select("name")
           .eq("id", item.product_id)
-          .single();
+          .maybeSingle();
         return NextResponse.json({
           error: `Stok "${prodInfo?.name || "Produk"}" tidak mencukupi (sisa ${product?.stock ?? 0}, butuh ${item.quantity})`,
         }, { status: 400 });

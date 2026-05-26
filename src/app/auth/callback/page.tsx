@@ -13,42 +13,14 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     let cancelled = false;
-
-    async function handleCallback() {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (cancelled) return;
-
-      if (session) {
-        setStatus("success");
-        setMessage("Berhasil masuk!");
-        setTimeout(() => { window.location.href = "/"; }, 1000);
-      } else {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
-        if (code) {
-          try {
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
-            if (error) throw error;
-          } catch (err: any) {
-            if (cancelled) return;
-            setStatus("error");
-            setMessage(err.message || "Gagal verifikasi");
-            return;
-          }
-          if (cancelled) return;
-          setStatus("success");
-          setMessage("Berhasil masuk!");
-          setTimeout(() => { window.location.href = "/"; }, 1000);
-        } else {
-          setStatus("loading");
-        }
-      }
-    }
-
-    handleCallback();
+    let recovered = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (cancelled) return;
+      if (event === "PASSWORD_RECOVERY") {
+        recovered = true;
+        window.location.href = "/auth/reset";
+      }
       if (event === "SIGNED_IN" && !cancelled) {
         setStatus("success");
         setMessage("Berhasil masuk!");
@@ -56,10 +28,55 @@ export default function AuthCallbackPage() {
       }
     });
 
-    return () => {
-      cancelled = true;
-      subscription?.unsubscribe();
-    };
+    async function handleCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const tokenHash = params.get("token_hash");
+      const type = params.get("type");
+
+      if (code) {
+        try {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } catch (err: any) {
+          if (cancelled) return;
+          setStatus("error");
+          setMessage(err.message || "Gagal verifikasi");
+          return;
+        }
+      } else if (tokenHash && type) {
+        try {
+          if (type === "recovery" || type === "invite") {
+            await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+            if (cancelled) return;
+            window.location.href = "/auth/reset";
+            return;
+          }
+          const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as any });
+          if (error) throw error;
+        } catch (err: any) {
+          if (cancelled) return;
+          setStatus("error");
+          setMessage(err.message || "Gagal verifikasi");
+          return;
+        }
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session && !cancelled) {
+          setStatus("loading");
+          return;
+        }
+      }
+
+      if (cancelled || recovered) return;
+
+      setStatus("success");
+      setMessage("Berhasil masuk!");
+      setTimeout(() => { window.location.href = "/"; }, 1000);
+    }
+
+    handleCallback();
+    return () => { cancelled = true; subscription?.unsubscribe(); };
   }, [router]);
 
   return (

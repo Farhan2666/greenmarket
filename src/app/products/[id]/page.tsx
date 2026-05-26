@@ -36,6 +36,7 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const { addItem } = useCart();
   const { session } = useAuth();
+  const productId = typeof id === "string" && id.startsWith("p") ? id : `p${id}`;
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -63,11 +64,13 @@ export default function ProductDetailPage() {
           const data = await res.json();
           setProduct(data as Product);
         } else {
-          const fallback = fallbackProducts.find((p) => p.id === Number(id));
+          const numId = Number(String(id).replace(/\D/g, ""));
+          const fallback = fallbackProducts.find((p) => p.id === numId);
           setProduct(fallback || null);
         }
       } catch {
-        const fallback = fallbackProducts.find((p) => p.id === Number(id));
+        const numId = Number(String(id).replace(/\D/g, ""));
+        const fallback = fallbackProducts.find((p) => p.id === numId);
         setProduct(fallback || null);
       } finally {
         setLoading(false);
@@ -79,7 +82,7 @@ export default function ProductDetailPage() {
   useEffect(() => {
     async function fetchReviews() {
       try {
-        const res = await fetch(`/api/reviews?productId=p${id}`);
+        const res = await fetch(`/api/reviews?productId=${productId}`);
         if (res.ok) {
           const data = await res.json();
           setReviews(data);
@@ -97,7 +100,7 @@ export default function ProductDetailPage() {
         const res = await fetch("/api/wishlist", { headers: { Authorization: `Bearer ${session?.access_token}` } });
         if (res.ok) {
           const data = await res.json();
-          setWishlisted(data.some((w: any) => w.product?.id === `p${id}`));
+          setWishlisted(data.some((w: any) => w.product?.id === productId));
         }
       } catch {}
     }
@@ -136,7 +139,7 @@ export default function ProductDetailPage() {
       const res = await fetch("/api/wishlist", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ product_id: `p${id}` }),
+        body: JSON.stringify({ product_id: productId }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -155,7 +158,7 @@ export default function ProductDetailPage() {
       const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ product_id: `p${id}`, ...reviewForm }),
+        body: JSON.stringify({ product_id: productId, ...reviewForm }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);

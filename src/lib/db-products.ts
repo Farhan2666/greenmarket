@@ -2,6 +2,23 @@ import { products as staticProducts } from "./data";
 import { supabaseAdmin } from "./supabase-admin";
 import type { Product } from "./data";
 
+function mapProduct(p: any): Product {
+  return {
+    id: typeof p.id === "number" ? p.id : Number(p.id.replace(/\D/g, "")) || Math.random(),
+    name: p.name,
+    description: p.description,
+    price: p.price,
+    image: p.images?.[0] || "",
+    images: p.images || [],
+    category: p.category,
+    rating: p.rating ? Math.round(p.rating * 10) / 10 : 0,
+    sold: p.sold ?? Math.floor(Math.random() * 1000),
+    store: p.seller?.name || p.store || "Toko",
+    location: p.location || "Indonesia",
+    stock: p.stock || 0,
+  };
+}
+
 export async function getProducts(options?: {
   search?: string;
   category?: string;
@@ -19,7 +36,9 @@ export async function getProducts(options?: {
     }
 
     if (options?.search) {
-      query = query.ilike("name", `%${options.search}%`);
+      query = query.or(
+        `name.ilike.%${options.search}%,category.ilike.%${options.search}%`
+      );
     }
 
     switch (options?.sortBy) {
@@ -40,30 +59,29 @@ export async function getProducts(options?: {
 
     if (error) throw error;
 
-    if (!data || data.length === 0) {
-      return staticProducts;
+    const dbProducts = (data || []).map(mapProduct);
+
+    const dbIds = new Set(dbProducts.map((p) => p.id));
+    const staticFiltered = staticProducts.filter((p) => !dbIds.has(p.id));
+
+    if (options?.category) {
+      return [...dbProducts, ...staticFiltered.filter((p) => p.category === options.category)];
     }
 
-    return data.map((p: any) => ({
-      id: Number(p.id.replace(/\D/g, "")) || Math.random(),
-      name: p.name,
-      description: p.description,
-      price: p.price,
-      image: p.images?.[0] || "",
-      images: p.images || [],
-      category: p.category,
-      rating: p.rating ? Math.round(p.rating * 10) / 10 : 0,
-      sold: Math.floor(Math.random() * 1000),
-      store: p.seller?.name || "Toko",
-      location: "Indonesia",
-      stock: p.stock || 0,
-    }));
+    return [...dbProducts, ...staticFiltered];
   } catch {
+    if (options?.category) {
+      return staticProducts.filter((p) => p.category === options.category);
+    }
     return staticProducts;
   }
 }
 
-export async function getProduct(id: number): Promise<Product | null> {
+function normalizeProductId(id: string): string {
+  return id.startsWith("p") ? id : `p${id}`;
+}
+
+export async function getProduct(id: string): Promise<Product | null> {
   try {
     const { data, error } = await supabaseAdmin
       .from("Product")
@@ -72,30 +90,17 @@ export async function getProduct(id: number): Promise<Product | null> {
         seller_id, created_at,
         seller:User!seller_id(id, name)
       `)
-      .eq("id", `p${id}`)
-      .single();
+      .eq("id", normalizeProductId(id))
+      .maybeSingle();
 
     if (error) throw error;
 
-    if (!data) {
-      return staticProducts.find((p) => p.id === id) || null;
-    }
+    if (data) return mapProduct(data);
 
-    return {
-      id: Number(data.id.replace(/\D/g, "")) || id,
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      image: data.images?.[0] || "",
-      images: data.images || [],
-      category: data.category,
-      rating: data.rating ? Math.round(data.rating * 10) / 10 : 0,
-      sold: Math.floor(Math.random() * 1000),
-      store: (data as any).seller?.name || "Toko",
-      location: "Indonesia",
-      stock: data.stock || 0,
-    };
+    const numericId = parseInt(id.replace(/\D/g, ""));
+    return staticProducts.find((p) => p.id === numericId) || null;
   } catch {
-    return staticProducts.find((p) => p.id === id) || null;
+    const numericId = parseInt(id.replace(/\D/g, ""));
+    return staticProducts.find((p) => p.id === numericId) || null;
   }
 }
