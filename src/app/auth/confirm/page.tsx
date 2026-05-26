@@ -13,6 +13,15 @@ export default function AuthConfirmPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let recovered = false;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (cancelled) return;
+      if (event === "PASSWORD_RECOVERY") {
+        recovered = true;
+        window.location.href = "/auth/reset";
+      }
+    });
 
     async function handleConfirm() {
       const params = new URLSearchParams(window.location.search);
@@ -25,6 +34,12 @@ export default function AuthConfirmPage() {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
         } else if (tokenHash && type) {
+          if (type === "recovery" || type === "invite") {
+            await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+            if (cancelled) return;
+            window.location.href = "/auth/reset";
+            return;
+          }
           const { error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: type as any,
@@ -36,11 +51,11 @@ export default function AuthConfirmPage() {
         }
 
         if (cancelled) return;
+        if (recovered) return;
 
-        if (type === "recovery" || type === "invite") {
-          window.location.href = "/auth/reset";
-          return;
-        }
+        await new Promise(r => setTimeout(r, 300));
+
+        if (recovered || cancelled) return;
 
         setStatus("success");
         setMessage("Login Berhasil! Selamat datang di GreenMarket.");
@@ -53,7 +68,10 @@ export default function AuthConfirmPage() {
     }
 
     handleConfirm();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   return (
