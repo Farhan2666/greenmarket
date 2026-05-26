@@ -24,7 +24,7 @@ export default function AuthPage() {
     try {
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
-          redirectTo: `${window.location.origin}/auth/reset`,
+          redirectTo: `${window.location.origin}/auth/confirm`,
         });
         if (error) throw error;
         setSuccess("Email reset password terkirim! Cek inbox kamu.");
@@ -41,10 +41,14 @@ export default function AuthPage() {
         await supabase.auth.setSession(data.session);
         await new Promise(r => setTimeout(r, 100));
       } else {
+        const origin = window.location.origin;
         const { error } = await supabase.auth.signUp({
           email: form.email,
           password: form.password,
-          options: { data: { name: form.name } },
+          options: {
+            data: { name: form.name },
+            emailRedirectTo: `${origin}/auth/confirm`,
+          },
         });
         if (error) throw error;
         setSuccess("Daftar berhasil! Cek email untuk konfirmasi.");
@@ -85,7 +89,7 @@ export default function AuthPage() {
           onClick={async () => {
             await supabase.auth.signInWithOAuth({
               provider: "google",
-              options: { redirectTo: window.location.origin },
+              options: { redirectTo: `${window.location.origin}/auth/confirm` },
             });
           }}
           className="w-full glass rounded-2xl py-3 md:py-3.5 flex items-center justify-center gap-2 md:gap-3 glass-hover text-sm md:text-base"

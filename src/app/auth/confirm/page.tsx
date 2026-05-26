@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
 import { Loader2, Check, XCircle } from "lucide-react";
 
-export default function AuthCallbackPage() {
+export default function AuthConfirmPage() {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
@@ -14,53 +14,47 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function handleCallback() {
-      const { data: { session } } = await supabase.auth.getSession();
+    async function handleConfirm() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const tokenHash = params.get("token_hash");
+      const type = params.get("type");
 
-      if (cancelled) return;
-
-      if (session) {
-        setStatus("success");
-        setMessage("Berhasil masuk!");
-        setTimeout(() => { window.location.href = "/"; }, 1000);
-      } else {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
+      try {
         if (code) {
-          try {
-            const { error } = await supabase.auth.exchangeCodeForSession(code);
-            if (error) throw error;
-          } catch (err: any) {
-            if (cancelled) return;
-            setStatus("error");
-            setMessage(err.message || "Gagal verifikasi");
-            return;
-          }
-          if (cancelled) return;
-          setStatus("success");
-          setMessage("Berhasil masuk!");
-          setTimeout(() => { window.location.href = "/"; }, 1000);
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } else if (tokenHash && type) {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as any,
+          });
+          if (error) throw error;
         } else {
-          setStatus("loading");
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error("Tidak ada session");
         }
+
+        if (cancelled) return;
+
+        if (type === "recovery") {
+          window.location.href = "/auth/reset";
+          return;
+        }
+
+        setStatus("success");
+        setMessage("Email berhasil diverifikasi! Kamu sudah masuk.");
+        setTimeout(() => { window.location.href = "/"; }, 1500);
+      } catch (err: any) {
+        if (cancelled) return;
+        setStatus("error");
+        setMessage(err.message || "Gagal verifikasi");
       }
     }
 
-    handleCallback();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" && !cancelled) {
-        setStatus("success");
-        setMessage("Berhasil masuk!");
-        setTimeout(() => { window.location.href = "/"; }, 1000);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      subscription?.unsubscribe();
-    };
-  }, [router]);
+    handleConfirm();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4">
@@ -68,7 +62,7 @@ export default function AuthCallbackPage() {
         {status === "loading" && (
           <>
             <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
-            <p className="text-sm text-white/60">Memproses...</p>
+            <p className="text-sm text-white/60">Memverifikasi...</p>
           </>
         )}
         {status === "success" && (
